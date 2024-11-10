@@ -44,14 +44,15 @@ def latest_versions(session):
     if response is None:
         return
     soup = BeautifulSoup(response.text, features='lxml')
-    sidebar = soup.find_all('div', attrs={'class': 'sphinxsidebarwrapper'})
+    sidebar = soup.find_all('div',
+                            attrs={'class': 'sphinxsidebarwrapper'})
     ul_tags = sidebar[0].find_all('ul')
     for ul in ul_tags:
         if 'All versions' in ul.text:
             a_tags = ul.find_all('a')
             break
         else:
-            raise ValueError("Не найден раздел 'All versions' на странице")
+            raise ValueError('Не найден раздел "All versions" на странице')
     results = [('Ссылка на документацию', 'Версия', 'Статус')]
     pattern = r'Python (?P<version>\d\.\d+) \((?P<status>.*)\)'
     for a_tag in a_tags:
