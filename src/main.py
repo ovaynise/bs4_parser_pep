@@ -5,6 +5,7 @@ from urllib.parse import urljoin
 import requests_cache
 from bs4 import BeautifulSoup
 from tqdm import tqdm
+from collections import defaultdict
 
 from configs import configure_argument_parser, configure_logging
 from constants import BASE_DIR, EXPECTED_STATUS, MAIN_DOC_URL, PEP_URL
@@ -49,8 +50,8 @@ def latest_versions(session):
         if 'All versions' in ul.text:
             a_tags = ul.find_all('a')
             break
-    else:
-        raise Exception('Ничего не нашлось')
+        else:
+            raise ValueError("Не найден раздел 'All versions' на странице")
     results = [('Ссылка на документацию', 'Версия', 'Статус')]
     pattern = r'Python (?P<version>\d\.\d+) \((?P<status>.*)\)'
     for a_tag in a_tags:
@@ -92,7 +93,7 @@ def pep(session):
         return
     soup = BeautifulSoup(response.text, features='lxml')
     sidebar_tr = soup.find_all('tr', attrs={'class': 'row-even'})
-    all_statuses_detail = {}
+    all_statuses_detail = defaultdict(int)
     status_mismatch_list = []
     results = [('Статус', 'Количество')]
     for pep_element in tqdm(sidebar_tr):
@@ -114,21 +115,20 @@ def pep(session):
             continue
         soup = BeautifulSoup(response.text, features='lxml')
         status_on_detail_page = soup.find('abbr').text
-        all_statuses_detail[status_on_detail_page] = all_statuses_detail.get(
-            status_on_detail_page, 0) + 1
+        all_statuses_detail[status_on_detail_page] += 1
         expected_statuses = EXPECTED_STATUS.get(pep_status, [])
         if status_on_detail_page not in expected_statuses:
             mismatch = (pep_link, status_on_list_page, status_on_detail_page)
             status_mismatch_list.append(mismatch)
     if status_mismatch_list:
-        logging.info("Несовпадающие статусы:")
+        logging.info('Несовпадающие статусы:')
         for (pep_link,
              status_on_list_page,
              status_on_detail_page) in status_mismatch_list:
-            logging.info(f"{pep_link}\nСтатус в карточке:"
-                         f" {status_on_list_page}")
-            logging.info(f"Ожидаемые статусы: {status_on_detail_page}")
-    results.extend((key, value) for key, value in all_statuses_detail.items())
+            logging.info(f'{pep_link}\nСтатус в карточке:'
+                         f' {status_on_list_page}')
+            logging.info(f'Ожидаемые статусы: {status_on_detail_page}')
+    results.extend(all_statuses_detail.items())
     total_count = sum(all_statuses_detail.values())
     results.append(('Total', total_count))
     return results
